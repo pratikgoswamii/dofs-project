@@ -7,10 +7,9 @@ phases:
       nodejs: 16
     commands:
       - echo Installing Terraform...
-      - rm -rf terraform  # Remove any existing terraform directory
       - curl -o terraform.zip https://releases.hashicorp.com/terraform/1.8.0/terraform_1.8.0_linux_amd64.zip
-      - unzip terraform.zip
-      - mv terraform /usr/local/bin/terraform
+      - unzip -o terraform.zip -d /tmp
+      - mv /tmp/terraform /usr/local/bin/terraform
       - terraform version
 
 
