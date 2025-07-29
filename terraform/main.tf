@@ -13,6 +13,9 @@ provider "aws" {
   region = var.aws_region
 }
 
+# Data source for current AWS account ID
+data "aws_caller_identity" "current" {}
+
 # DynamoDB Module (must be created first)
 module "dynamodb" {
   source = "./modules/dynamodb"
@@ -58,6 +61,24 @@ module "api_gateway" {
   api_handler_lambda_function_name = module.compute.api_handler_function_name
   
   depends_on = [module.compute]
+}
+
+# CI/CD Module
+module "cicd" {
+  source = "./modules/cicd"
+  
+  project_name           = var.project_name
+  environment            = var.environment
+  aws_region             = var.aws_region
+  source_repository_name = "dofs-project"
+  source_branch_name     = "main"
+  tags = {
+    Project     = "DOFS"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+  
+  depends_on = [module.api_gateway]
 }
 
 
