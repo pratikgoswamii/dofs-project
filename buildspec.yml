@@ -4,12 +4,15 @@ phases:
   install:
     runtime-versions:
       python: 3.9
+      nodejs: 16
     commands:
-      - echo "Installing Terraform..."
+      - echo Installing Terraform...
+      - rm -rf terraform  # Remove any existing terraform directory
       - curl -o terraform.zip https://releases.hashicorp.com/terraform/1.8.0/terraform_1.8.0_linux_amd64.zip
-      - unzip -o terraform.zip
-      - mv terraform /usr/local/bin/
-      - terraform -version
+      - unzip terraform.zip
+      - mv terraform /usr/local/bin/terraform
+      - terraform version
+
 
   pre_build:
     commands:
