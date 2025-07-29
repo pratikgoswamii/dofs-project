@@ -4,33 +4,40 @@ phases:
   install:
     runtime-versions:
       python: 3.9
-      nodejs: 16
     commands:
-      - echo Entered the install phase...
-      - pip install --upgrade pip
-      - pip install aws-sam-cli
-      - npm install -g typescript
+      - echo "Installing Terraform..."
+      - curl -o terraform.zip https://releases.hashicorp.com/terraform/1.8.0/terraform_1.8.0_linux_amd64.zip
+      - unzip terraform.zip
+      - mv terraform /usr/local/bin/
+      - terraform -version
 
   pre_build:
     commands:
-      - echo Entered the pre_build phase...
-      - echo Build started on `date`
-      - echo Installing dependencies...
-      # Only install requirements for api_handler since it's the only one with requirements.txt
-      - cd lambdas/api_handler && pip install -r requirements.txt -t . && cd ../..
+      - echo "Installing dependencies and preparing Lambda packages..."
+      # Prepare Lambda zips
+      - |
+        for d in lambdas/*; do
+          if [ -d "$d" ]; then
+            echo "Processing $d"
+            if [ -f "$d/requirements.txt" ]; then
+              pip install -r "$d/requirements.txt" -t "$d"
+            fi
+            (cd "$d" && zip -r "../$(basename $d).zip" .)
+          fi
+        done
 
   build:
     commands:
-      - echo Entered the build phase...
-      - echo Build started on `date`
-      - sam build
-      - sam package --s3-bucket $BUCKET_NAME --output-template-file packaged-template.yaml
+      - echo "Running Terraform..."
+      - cd terraform
+      - terraform init
+      - terraform apply -auto-approve
+      - cd ..
 
   post_build:
     commands:
-      - echo Entered the post_build phase...
-      - echo Build completed on `date`
+      - echo "Build completed on `date`"
 
 artifacts:
   files:
-    - packaged-template.yaml
+    - '**/*.zip'

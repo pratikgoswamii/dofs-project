@@ -88,6 +88,8 @@ resource "aws_codepipeline" "dofs_pipeline" {
         ConnectionArn    = aws_codestarconnections_connection.github_connection.arn
         FullRepositoryId = "${var.github_owner}/${var.github_repo}"
         BranchName       = var.source_branch_name
+        DetectChanges    = true
+        OutputArtifactFormat = "CODEBUILD_CLONE_REF"
       }
     }
   }
