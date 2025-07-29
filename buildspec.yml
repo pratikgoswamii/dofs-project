@@ -1,0 +1,40 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.9
+      nodejs: 16
+    commands:
+      - echo Entered the install phase...
+      - pip install --upgrade pip
+      - pip install aws-sam-cli
+      - npm install -g typescript
+
+  pre_build:
+    commands:
+      - echo Entered the pre_build phase...
+      - echo Build started on `date`
+      - echo Installing dependencies...
+      - cd lambdas/api_handler && pip install -r requirements.txt -t . && cd ../..
+      - cd lambdas/validator && pip install -r requirements.txt -t . && cd ../..
+      - cd lambdas/order_storage && pip install -r requirements.txt -t . && cd ../..
+      - cd lambdas/fulfill_order && pip install -r requirements.txt -t . && cd ../..
+
+  build:
+    commands:
+      - echo Entered the build phase...
+      - echo Build started on `date`
+      - sam build
+      - sam package --s3-bucket $BUCKET_NAME --output-template-file packaged-template.yaml
+
+  post_build:
+    commands:
+      - echo Entered the post_build phase...
+      - echo Build completed on `date`
+
+artifacts:
+  files:
+    - packaged-template.yaml
+    - terraform/**/*
+  name: dofs-build-$(date +%Y-%m-%d)
