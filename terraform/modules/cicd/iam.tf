@@ -21,7 +21,8 @@ resource "aws_iam_role" "codepipeline_role" {
 }
 
 resource "aws_iam_role_policy" "codepipeline_policy" {
-  role = aws_iam_role.codepipeline_role.name
+  name = "${var.project_name}-codepipeline-policy-${var.environment}"
+  role = aws_iam_role.codepipeline_role.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -29,9 +30,10 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
       {
         Effect = "Allow"
         Action = [
-          "s3:GetBucketVersioning",
           "s3:GetObject",
           "s3:GetObjectVersion",
+          "s3:GetBucketVersioning",
+          "s3:PutObjectAcl",
           "s3:PutObject"
         ]
         Resource = [
@@ -39,14 +41,43 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
           "${aws_s3_bucket.codepipeline_artifacts.arn}/*"
         ]
       },
-
       {
         Effect = "Allow"
         Action = [
           "codebuild:BatchGetBuilds",
-          "codebuild:StartBuild"
+          "codebuild:StartBuild",
+          "codebuild:BatchGetBuildBatches"
         ]
-        Resource = aws_codebuild_project.dofs_build.arn
+        Resource = [
+          aws_codebuild_project.dofs_build.arn
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "codestar-connections:UseConnection",
+          "codestar-connections:GetConnection"
+        ]
+        Resource = aws_codestarconnections_connection.github_connection.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:DescribeKey",
+          "kms:GenerateDataKey*",
+          "kms:Encrypt",
+          "kms:ReEncrypt*",
+          "kms:Decrypt"
+        ]
+        Resource = "*"
+        Condition = {
+          StringLikeIfExists = {
+            "kms:ViaService" = [
+              "s3.${var.aws_region}.amazonaws.com",
+              "codestar-connections.${var.aws_region}.amazonaws.com"
+            ]
+          }
+        }
       }
     ]
   })

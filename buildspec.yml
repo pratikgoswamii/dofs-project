@@ -16,10 +16,8 @@ phases:
       - echo Entered the pre_build phase...
       - echo Build started on `date`
       - echo Installing dependencies...
+      # Only install requirements for api_handler since it's the only one with requirements.txt
       - cd lambdas/api_handler && pip install -r requirements.txt -t . && cd ../..
-      - cd lambdas/validator && pip install -r requirements.txt -t . && cd ../..
-      - cd lambdas/order_storage && pip install -r requirements.txt -t . && cd ../..
-      - cd lambdas/fulfill_order && pip install -r requirements.txt -t . && cd ../..
 
   build:
     commands:
@@ -36,5 +34,3 @@ phases:
 artifacts:
   files:
     - packaged-template.yaml
-    - terraform/**/*
-  name: dofs-build-$(date +%Y-%m-%d)
