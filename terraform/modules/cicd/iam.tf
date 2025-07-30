@@ -154,7 +154,9 @@ resource "aws_iam_role_policy" "codebuild_policy" {
       {
         "Effect" = "Allow"
         "Action" = [
-          "cloudwatch:DescribeAlarms"
+          "cloudwatch:DescribeAlarms",
+          "cloudwatch:ListTagsForResource",
+          "cloudwatch:PutMetricAlarm"
         ]
         "Resource" = "*"
       }
