@@ -46,7 +46,9 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         Action = [
           "codebuild:BatchGetBuilds",
           "codebuild:StartBuild",
-          "codebuild:BatchGetBuildBatches"
+          "codebuild:BatchGetBuildBatches",
+          "codebuild:ListBuildBatches",
+          "codebuild:BatchGetProjects"
         ]
         Resource = [
           aws_codebuild_project.dofs_build.arn
@@ -56,7 +58,8 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
         Effect = "Allow"
         Action = [
           "codestar-connections:UseConnection",
-          "codestar-connections:GetConnection"
+          "codestar-connections:GetConnection",
+          "codestar-connections:ListConnections"
         ]
         Resource = aws_codestarconnections_connection.github_connection.arn
       },
