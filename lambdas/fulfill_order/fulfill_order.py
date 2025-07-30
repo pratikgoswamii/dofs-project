@@ -18,37 +18,36 @@ def lambda_handler(event, context):
     Fulfill Order Lambda function for DOFS project
     Processes SQS messages and fulfills validated orders with 70% success rate
     """
-    try:
-        # Log the incoming event with structured logging
-        logger.info(json.dumps({
-            'event': 'fulfillment_triggered',
-            'request_id': context.aws_request_id,
-            'timestamp': datetime.now(timezone.utc).isoformat(),
-            'records_count': len(event.get('Records', []))
-        }))
-        
-        # Process each SQS record
-        for record in event.get('Records', []):
+    logger.info(json.dumps({
+        'event': 'fulfillment_triggered',
+        'request_id': context.aws_request_id,
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'records_count': len(event.get('Records', []))
+    }))
+    
+    batch_item_failures = []
+    
+    # Process each SQS record
+    for record in event.get('Records', []):
+        try:
             process_order_record(record, context)
-        
-        return {
-            'statusCode': 200,
-            'body': json.dumps({
-                'message': 'All records processed successfully',
-                'processed_count': len(event.get('Records', []))
+        except Exception as e:
+            logger.error(json.dumps({
+                'event': 'record_processing_failed',
+                'message_id': record.get('messageId'),
+                'error': str(e),
+                'request_id': context.aws_request_id,
+                'timestamp': datetime.now(timezone.utc).isoformat()
+            }))
+            # Add failed message to batch failures
+            batch_item_failures.append({
+                'itemIdentifier': record.get('messageId')
             })
-        }
-        
-    except Exception as e:
-        logger.error(json.dumps({
-            'event': 'fulfillment_handler_error',
-            'request_id': context.aws_request_id,
-            'error': str(e),
-            'timestamp': datetime.now(timezone.utc).isoformat()
-        }))
-        
-        # Re-raise to trigger SQS retry mechanism
-        raise e
+    
+    # Return batch item failures for SQS to handle
+    return {
+        'batchItemFailures': batch_item_failures
+    }
 
 def process_order_record(record, context):
     """

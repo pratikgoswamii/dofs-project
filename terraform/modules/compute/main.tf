@@ -363,7 +363,11 @@ resource "aws_lambda_function" "fulfillment" {
 resource "aws_lambda_event_source_mapping" "sqs_trigger" {
   event_source_arn = var.order_queue_arn
   function_name    = aws_lambda_function.fulfillment.arn
-  batch_size       = 10
+  batch_size       = 1
+  maximum_batching_window_in_seconds = 5
+  
+  # Configure failure handling
+  function_response_types = ["ReportBatchItemFailures"]
   
   depends_on = [aws_lambda_function.fulfillment]
 }
