@@ -60,6 +60,13 @@ resource "aws_codebuild_project" "dofs_build" {
     buildspec = "buildspec.yml"
   }
 
+  logs_config {
+    cloudwatch_logs {
+      status = "ENABLED"
+      group_name = "/aws/codebuild/${var.project_name}-build-${var.environment}"
+    }
+  }
+
   tags = var.tags
 }
 
@@ -89,7 +96,7 @@ resource "aws_codepipeline" "dofs_pipeline" {
         FullRepositoryId = "${var.github_owner}/${var.github_repo}"
         BranchName       = var.source_branch_name
         DetectChanges    = true
-        OutputArtifactFormat = "CODEBUILD_CLONE_REF"
+        OutputArtifactFormat = "CODE_ZIP"
       }
     }
   }
@@ -110,6 +117,31 @@ resource "aws_codepipeline" "dofs_pipeline" {
         ProjectName = aws_codebuild_project.dofs_build.name
       }
     }
+  }
+
+  tags = var.tags
+}
+
+# Random secret for webhook
+resource "random_string" "webhook_secret" {
+  length  = 32
+  special = true
+}
+
+# Webhook to trigger pipeline on GitHub push
+resource "aws_codepipeline_webhook" "github_webhook" {
+  name            = "${var.project_name}-webhook-${var.environment}"
+  target_pipeline = aws_codepipeline.dofs_pipeline.name
+  target_action   = "Source"
+  authentication  = "GITHUB_HMAC"
+
+  authentication_configuration {
+    secret_token = random_string.webhook_secret.result
+  }
+
+  filter {
+    json_path    = "$.ref"
+    match_equals = "refs/heads/${var.source_branch_name}"
   }
 
   tags = var.tags

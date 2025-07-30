@@ -129,11 +129,12 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
-          "logs:DescribeLogStreams"
+          "logs:DescribeLogStreams",
+          "logs:DescribeLogGroups"
         ]
         Resource = [
-          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${var.project_name}-${var.environment}*:*",
-          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${var.project_name}-${var.environment}*:log-stream:*"
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${var.project_name}-build-${var.environment}",
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${var.project_name}-build-${var.environment}:*"
         ]
       },
       
@@ -208,43 +209,56 @@ resource "aws_iam_role_policy" "codebuild_policy" {
         Resource = ["*"]
       },
       
-      # Service-specific permissions (scoped down from original wildcards)
+      # Terraform AWS provider permissions
       {
         Effect = "Allow"
         Action = [
           # Lambda
-          "lambda:UpdateFunctionCode",
-          "lambda:UpdateFunctionConfiguration",
-          "lambda:ListVersionsByFunction",
+          "lambda:*",
           
           # API Gateway
-          "apigateway:POST",
-          "apigateway:GET",
-          "apigateway:PUT",
-          "apigateway:PATCH",
-          "apigateway:DELETE",
+          "apigateway:*",
           
           # DynamoDB
-          "dynamodb:CreateTable",
-          "dynamodb:UpdateTable",
-          "dynamodb:PutItem",
-          "dynamodb:GetItem",
-          "dynamodb:Query",
-          "dynamodb:Scan",
-          "dynamodb:UpdateItem",
-          "dynamodb:DeleteItem",
+          "dynamodb:*",
           
           # SQS
-          "sqs:SendMessage",
-          "sqs:ReceiveMessage",
-          "sqs:DeleteMessage",
-          "sqs:GetQueueUrl",
-          "sqs:GetQueueAttributes",
+          "sqs:*",
           
           # Step Functions
-          "states:StartExecution",
-          "states:DescribeExecution",
-          "states:StopExecution"
+          "states:*",
+          
+          # IAM (for role management)
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:GetRole",
+          "iam:ListRoles",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy",
+          "iam:GetRolePolicy",
+          "iam:ListRolePolicies",
+          "iam:ListAttachedRolePolicies",
+          "iam:CreatePolicy",
+          "iam:DeletePolicy",
+          "iam:GetPolicy",
+          "iam:ListPolicies",
+          "iam:GetPolicyVersion",
+          "iam:ListPolicyVersions",
+          
+          # CloudWatch
+          "logs:*",
+          "cloudwatch:*",
+          
+          # CodeStar Connections
+          "codestar-connections:*",
+          
+          # CodePipeline
+          "codepipeline:*",
+          
+          # CodeBuild
+          "codebuild:*"
         ]
         Resource = ["*"]
       },

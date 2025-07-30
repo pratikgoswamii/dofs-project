@@ -34,3 +34,18 @@ output "step_function_arn" {
   description = "Step Function ARN"
   value       = module.compute.step_function_arn
 }
+
+output "cicd_info" {
+  description = "CI/CD pipeline information"
+  value       = {
+    pipeline_name = module.cicd.codepipeline_name
+    webhook_url = module.cicd.webhook_url
+    github_connection_arn = module.cicd.github_connection_arn
+  }
+}
+
+output "webhook_secret" {
+  description = "Webhook secret for GitHub configuration"
+  value       = module.cicd.webhook_secret
+  sensitive   = true
+}
