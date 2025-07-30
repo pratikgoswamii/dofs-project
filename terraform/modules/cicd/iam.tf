@@ -263,18 +263,36 @@ resource "aws_iam_role_policy" "codebuild_policy" {
         Resource = ["*"]
       },
       
-      # Terraform state access
+      # Terraform state S3 bucket access
       {
         Effect = "Allow"
         Action = [
           "s3:ListBucket",
           "s3:GetObject",
           "s3:PutObject",
-          "s3:DeleteObject"
+          "s3:DeleteObject",
+          "s3:GetBucketVersioning",
+          "s3:GetBucketLocation"
         ]
         Resource = [
+          "arn:aws:s3:::dofs-terraform-state-13012002",
+          "arn:aws:s3:::dofs-terraform-state-13012002/*",
           aws_s3_bucket.codepipeline_artifacts.arn,
           "${aws_s3_bucket.codepipeline_artifacts.arn}/*"
+        ]
+      },
+      
+      # DynamoDB permissions for Terraform state locking
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:DescribeTable"
+        ]
+        Resource = [
+          "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/dofs-terraform-locks"
         ]
       },
       
