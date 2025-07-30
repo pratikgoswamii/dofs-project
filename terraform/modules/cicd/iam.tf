@@ -1,18 +1,20 @@
-# -------------------------------
-# CodePipeline IAM Role & Policy
-# -------------------------------
+# IAM roles for CI/CD pipeline
+
+# CodePipeline service role
 resource "aws_iam_role" "codepipeline_role" {
   name = "${var.project_name}-codepipeline-role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Service = "codepipeline.amazonaws.com"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "codepipeline.amazonaws.com"
+        }
       }
-      Action = "sts:AssumeRole"
-    }]
+    ]
   })
 
   tags = var.tags
@@ -25,43 +27,43 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      # Access S3 buckets for artifacts
       {
         Effect = "Allow"
         Action = [
           "s3:GetObject",
           "s3:GetObjectVersion",
           "s3:GetBucketVersioning",
-          "s3:PutObject",
-          "s3:PutObjectAcl"
+          "s3:PutObjectAcl",
+          "s3:PutObject"
         ]
         Resource = [
           aws_s3_bucket.codepipeline_artifacts.arn,
           "${aws_s3_bucket.codepipeline_artifacts.arn}/*"
         ]
       },
-      # Start CodeBuild projects
       {
         Effect = "Allow"
         Action = [
           "codebuild:BatchGetBuilds",
           "codebuild:StartBuild",
-          "codebuild:BatchGetBuildBatches"
+          "codebuild:BatchGetBuildBatches",
+          "codebuild:ListBuildBatches",
+          "codebuild:BatchGetProjects"
         ]
         Resource = [
           aws_codebuild_project.dofs_build.arn
         ]
       },
-      # Access CodeStar connection
       {
         Effect = "Allow"
         Action = [
           "codestar-connections:UseConnection",
-          "codestar-connections:GetConnection"
+          "codestar-connections:GetConnection",
+          "codestar-connections:ListConnections",
+          "codestar-connections:ListTagsForResource"
         ]
         Resource = aws_codestarconnections_connection.github_connection.arn
       },
-      # KMS for artifact encryption/decryption
       {
         Effect = "Allow"
         Action = [
@@ -85,34 +87,32 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
   })
 }
 
-# ----------------------------
-# CodeBuild IAM Role & Policy
-# ----------------------------
+# CodeBuild service role
 resource "aws_iam_role" "codebuild_role" {
   name = "${var.project_name}-codebuild-role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Service = "codebuild.amazonaws.com"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "codebuild.amazonaws.com"
+        }
       }
-      Action = "sts:AssumeRole"
-    }]
+    ]
   })
 
   tags = var.tags
 }
 
 resource "aws_iam_role_policy" "codebuild_policy" {
-  name = "${var.project_name}-codebuild-policy-${var.environment}"
   role = aws_iam_role.codebuild_role.name
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      # CloudWatch Logs access
       {
         Effect = "Allow"
         Action = [
@@ -122,7 +122,6 @@ resource "aws_iam_role_policy" "codebuild_policy" {
         ]
         Resource = "arn:aws:logs:*:*:*"
       },
-      # Access S3 for artifacts
       {
         Effect = "Allow"
         Action = [
@@ -135,35 +134,6 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "${aws_s3_bucket.codepipeline_artifacts.arn}/*"
         ]
       },
-      # CloudWatch permissions for metric alarm access
-      {
-        Effect = "Allow"
-        Action = [
-          "cloudwatch:GetMetricData",
-          "cloudwatch:DescribeAlarms",
-          "cloudwatch:ListTagsForResource"
-        ]
-        Resource = "*"
-      },
-      # CodeBuild project info (for reading own project)
-      {
-        Effect = "Allow"
-        Action = [
-          "codebuild:BatchGetProjects"
-        ]
-        Resource = "arn:aws:codebuild:${var.aws_region}:${data.aws_caller_identity.current.account_id}:project/${var.project_name}-build-${var.environment}"
-      },
-      # CodeStar connections permissions
-      {
-        Effect = "Allow"
-        Action = [
-          "codestar-connections:UseConnection",
-          "codestar-connections:GetConnection",
-          "codestar-connections:ListTagsForResource"
-        ]
-        Resource = aws_codestarconnections_connection.github_connection.arn
-      },
-      # General permissions for deployment targets (adjust as needed)
       {
         Effect = "Allow"
         Action = [
@@ -177,6 +147,32 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "s3:*"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "codestar-connections:UseConnection",
+          "codestar-connections:GetConnection",
+          "codestar-connections:ListConnections",
+          "codestar-connections:ListTagsForResource"
+        ]
+        Resource = aws_codestarconnections_connection.github_connection.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:DescribeAlarms",
+          "cloudwatch:ListTagsForResource",
+          "cloudwatch:PutMetricAlarm"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "codebuild:BatchGetProjects"
+        ]
+        Resource = aws_codebuild_project.dofs_build.arn
       }
     ]
   })
