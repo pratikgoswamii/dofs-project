@@ -1,9 +1,10 @@
 # IAM roles for CI/CD pipeline
 
+data "aws_caller_identity" "current" {}
+
 # CodePipeline service role
 resource "aws_iam_role" "codepipeline_role" {
   name = "${var.project_name}-codepipeline-role-${var.environment}"
-
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -16,7 +17,6 @@ resource "aws_iam_role" "codepipeline_role" {
       }
     ]
   })
-
   tags = var.tags
 }
 
@@ -30,11 +30,10 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
       {
         Effect = "Allow"
         Action = [
-          "s3:GetObject",
-          "s3:GetObjectVersion",
-          "s3:GetBucketVersioning",
-          "s3:PutObjectAcl",
-          "s3:PutObject"
+          "s3:GetObject*",
+          "s3:GetBucket*",
+          "s3:List*",
+          "s3:PutObject*"
         ]
         Resource = [
           aws_s3_bucket.codepipeline_artifacts.arn,
@@ -47,22 +46,33 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
           "codebuild:BatchGetBuilds",
           "codebuild:StartBuild",
           "codebuild:BatchGetBuildBatches",
+          "codebuild:StartBuildBatch",
           "codebuild:ListBuildBatches",
           "codebuild:BatchGetProjects"
         ]
-        Resource = [
-          aws_codebuild_project.dofs_build.arn
-        ]
+        Resource = [aws_codebuild_project.dofs_build.arn]
+      },
+      {
+        Effect = "Allow"
+        Action = ["codestar-connections:UseConnection"]
+        Resource = [aws_codestarconnections_connection.github_connection.arn]
       },
       {
         Effect = "Allow"
         Action = [
-          "codestar-connections:UseConnection",
-          "codestar-connections:GetConnection",
-          "codestar-connections:ListConnections",
-          "codestar-connections:ListTagsForResource"
+          "codepipeline:GetPipeline",
+          "codepipeline:GetPipelineState",
+          "codepipeline:GetPipelineExecution",
+          "codepipeline:ListPipelineExecutions",
+          "codepipeline:ListActionTypes",
+          "codepipeline:ListPipelines"
         ]
-        Resource = aws_codestarconnections_connection.github_connection.arn
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = ["iam:PassRole"]
+        Resource = [aws_iam_role.codebuild_role.arn]
       },
       {
         Effect = "Allow"
@@ -90,7 +100,6 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
 # CodeBuild service role
 resource "aws_iam_role" "codebuild_role" {
   name = "${var.project_name}-codebuild-role-${var.environment}"
-
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -103,16 +112,17 @@ resource "aws_iam_role" "codebuild_role" {
       }
     ]
   })
-
   tags = var.tags
 }
 
 resource "aws_iam_role_policy" "codebuild_policy" {
+  name = "${var.project_name}-codebuild-policy-${var.environment}"
   role = aws_iam_role.codebuild_role.name
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      # CloudWatch Logs permissions
       {
         Effect = "Allow"
         Action = [
@@ -120,59 +130,154 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        Resource = "arn:aws:logs:*:*:*"
+        Resource = ["arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/${var.project_name}-${var.environment}*:*"]
       },
+      
+      # S3 permissions
       {
         Effect = "Allow"
         Action = [
-          "s3:GetObject",
-          "s3:GetObjectVersion",
-          "s3:PutObject"
+          "s3:GetObject*",
+          "s3:PutObject*",
+          "s3:ListBucket*"
         ]
         Resource = [
           aws_s3_bucket.codepipeline_artifacts.arn,
           "${aws_s3_bucket.codepipeline_artifacts.arn}/*"
         ]
       },
+      
+      # CodePipeline permissions
       {
         Effect = "Allow"
         Action = [
-          "lambda:*",
-          "apigateway:*",
-          "dynamodb:*",
-          "sqs:*",
-          "states:*",
-          "iam:*",
-          "logs:*",
-          "s3:*"
+          "codepipeline:GetPipeline",
+          "codepipeline:GetPipelineState",
+          "codepipeline:GetPipelineExecution"
         ]
         Resource = "*"
       },
+      
+      # CodeBuild permissions
       {
         Effect = "Allow"
         Action = [
-          "codestar-connections:UseConnection",
-          "codestar-connections:GetConnection",
-          "codestar-connections:ListConnections",
-          "codestar-connections:ListTagsForResource"
+          "codebuild:BatchGetBuilds",
+          "codebuild:StartBuild",
+          "codebuild:BatchGetBuildBatches",
+          "codebuild:StartBuildBatch"
         ]
-        Resource = aws_codestarconnections_connection.github_connection.arn
+        Resource = [aws_codebuild_project.dofs_build.arn]
       },
+      
+      # CodeStar Connections
+      {
+        Effect = "Allow"
+        Action = ["codestar-connections:UseConnection"]
+        Resource = [aws_codestarconnections_connection.github_connection.arn]
+      },
+      
+      # KMS permissions
       {
         Effect = "Allow"
         Action = [
-          "cloudwatch:DescribeAlarms",
-          "cloudwatch:ListTagsForResource",
-          "cloudwatch:PutMetricAlarm"
+          "kms:Decrypt",
+          "kms:DescribeKey",
+          "kms:Encrypt",
+          "kms:GenerateDataKey*",
+          "kms:ReEncrypt*"
+        ]
+        Resource = ["*"]
+      },
+      
+      # IAM permissions for CloudFormation
+      {
+        Effect = "Allow"
+        Action = ["iam:PassRole"]
+        Resource = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/*"]
+      },
+      
+      # CloudWatch metrics
+      {
+        Effect = "Allow"
+        Action = ["cloudwatch:PutMetricData"]
+        Resource = ["*"]
+      },
+      
+      # Service-specific permissions (scoped down from original wildcards)
+      {
+        Effect = "Allow"
+        Action = [
+          # Lambda
+          "lambda:UpdateFunctionCode",
+          "lambda:UpdateFunctionConfiguration",
+          "lambda:ListVersionsByFunction",
+          
+          # API Gateway
+          "apigateway:POST",
+          "apigateway:GET",
+          "apigateway:PUT",
+          "apigateway:PATCH",
+          "apigateway:DELETE",
+          
+          # DynamoDB
+          "dynamodb:CreateTable",
+          "dynamodb:UpdateTable",
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:Query",
+          "dynamodb:Scan",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          
+          # SQS
+          "sqs:SendMessage",
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueUrl",
+          "sqs:GetQueueAttributes",
+          
+          # Step Functions
+          "states:StartExecution",
+          "states:DescribeExecution",
+          "states:StopExecution"
+        ]
+        Resource = ["*"]
+      },
+      
+      # Terraform state access
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket",
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+        Resource = [
+          aws_s3_bucket.codepipeline_artifacts.arn,
+          "${aws_s3_bucket.codepipeline_artifacts.arn}/*"
+        ]
+      },
+      
+      # ECR permissions for Docker images
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:GetRepositoryPolicy",
+          "ecr:DescribeRepositories",
+          "ecr:ListImages",
+          "ecr:DescribeImages",
+          "ecr:BatchGetImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:PutImage"
         ]
         Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "codebuild:BatchGetProjects"
-        ]
-        Resource = aws_codebuild_project.dofs_build.arn
       }
     ]
   })
