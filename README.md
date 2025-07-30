@@ -428,4 +428,5 @@ This project implements a serverless order processing system with the following 
 
 [Add your license information here]
 " #   P i p e l i n e   t e s t   -   $ ( d a t e ) "      
+ " #   F r e s h   c o n n e c t i o n   t e s t   -   $ ( d a t e ) "      
  
