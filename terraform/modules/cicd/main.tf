@@ -36,6 +36,17 @@ resource "aws_codestarconnections_connection" "github_connection" {
   name          = "${var.project_name}-github-connection"
   provider_type = "GitHub"
   tags          = var.tags
+  
+  lifecycle {
+    replace_triggered_by = [random_string.connection_suffix]
+  }
+}
+
+# Force connection recreation
+resource "random_string" "connection_suffix" {
+  length  = 4
+  special = false
+  upper   = false
 }
 
 # CodeBuild Project
@@ -122,27 +133,4 @@ resource "aws_codepipeline" "dofs_pipeline" {
   tags = var.tags
 }
 
-# Random secret for webhook
-resource "random_string" "webhook_secret" {
-  length  = 32
-  special = true
-}
 
-# Webhook to trigger pipeline on GitHub push
-resource "aws_codepipeline_webhook" "github_webhook" {
-  name            = "${var.project_name}-webhook-${var.environment}"
-  target_pipeline = aws_codepipeline.dofs_pipeline.name
-  target_action   = "Source"
-  authentication  = "GITHUB_HMAC"
-
-  authentication_configuration {
-    secret_token = random_string.webhook_secret.result
-  }
-
-  filter {
-    json_path    = "$.ref"
-    match_equals = "refs/heads/${var.source_branch_name}"
-  }
-
-  tags = var.tags
-}

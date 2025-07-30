@@ -39,13 +39,7 @@ output "cicd_info" {
   description = "CI/CD pipeline information"
   value       = {
     pipeline_name = module.cicd.codepipeline_name
-    webhook_url = module.cicd.webhook_url
     github_connection_arn = module.cicd.github_connection_arn
+    github_connection_status = module.cicd.github_connection_status
   }
-}
-
-output "webhook_secret" {
-  description = "Webhook secret for GitHub configuration"
-  value       = module.cicd.webhook_secret
-  sensitive   = true
 }

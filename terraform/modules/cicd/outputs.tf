@@ -23,18 +23,12 @@ output "artifacts_bucket_name" {
   value       = aws_s3_bucket.codepipeline_artifacts.bucket
 }
 
-output "webhook_url" {
-  description = "Webhook URL for GitHub integration"
-  value       = aws_codepipeline_webhook.github_webhook.url
-}
-
 output "github_connection_arn" {
   description = "CodeStar connection ARN for GitHub"
   value       = aws_codestarconnections_connection.github_connection.arn
 }
 
-output "webhook_secret" {
-  description = "Webhook secret for GitHub configuration"
-  value       = random_string.webhook_secret.result
-  sensitive   = true
+output "github_connection_status" {
+  description = "Status of GitHub connection"
+  value       = aws_codestarconnections_connection.github_connection.connection_status
 }
