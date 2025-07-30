@@ -150,6 +150,13 @@ resource "aws_iam_role_policy" "codebuild_policy" {
           "codestar-connections:UseConnection"
         ]
         Resource = aws_codestarconnections_connection.github_connection.arn
+      },
+      {
+        "Effect" = "Allow"
+        "Action" = [
+          "cloudwatch:DescribeAlarms"
+        ]
+        "Resource" = "*"
       }
     ]
   })
