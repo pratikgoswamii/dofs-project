@@ -11,6 +11,7 @@ DOFS is a **distributed, asynchronous order processing system** built entirely o
 - ✅ **Asynchronous Validation** and error handling
 - ✅ **Scalable Data Storage** with DynamoDB
 - ✅ **Infrastructure as Code** with Terraform
+- ✅ **CI/CD Pipeline** with CodePipeline and CodeBuild
 - ✅ **Comprehensive Monitoring** with CloudWatch
 
 ## 🏗️ Architecture
@@ -115,7 +116,7 @@ dofs-project/
 
 ### 1. 📥 Clone and Setup
 ```bash
-git clone <repository-url>
+git clone https://github.com/pratikgoswamii/dofs-project.git
 cd dofs-project
 ```
 
@@ -186,12 +187,12 @@ cd scripts
 
 **Health Check:**
 ```bash
-curl -X GET "https://your-api-id.execute-api.ap-south-1.amazonaws.com/dev/health"
+curl -X GET "https://ghuniii2v7.execute-api.ap-south-1.amazonaws.com/dev/health"
 ```
 
 **Submit Order:**
 ```bash
-curl -X POST "https://your-api-id.execute-api.ap-south-1.amazonaws.com/dev/order" \
+curl -X POST "https://ghuniii2v7.execute-api.ap-south-1.amazonaws.com/dev/order" \
   -H "Content-Type: application/json" \
   -d '{
     "customer_id": "cust_123",
@@ -427,6 +428,8 @@ This project implements a serverless order processing system with the following 
 ## License
 
 [Add your license information here]
-" #   P i p e l i n e   t e s t   -   $ ( d a t e ) "      
- " #   F r e s h   c o n n e c t i o n   t e s t   -   $ ( d a t e ) "      
+" #   P i p e l i n e   t e s t   -   $ ( d a t e ) "     
+ 
+ " #   F r e s h   c o n n e c t i o n   t e s t   -   $ ( d a t e ) "     
+ 
  
