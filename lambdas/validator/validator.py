@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 ## Testing CI/CD ##
 
+
 # Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
