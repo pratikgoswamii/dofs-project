@@ -39,6 +39,11 @@ output "fulfillment_function_name" {
   value       = aws_lambda_function.fulfillment.function_name
 }
 
+output "dlq_processor_function_name" {
+  description = "Name of the DLQ processor Lambda function"
+  value       = aws_lambda_function.dlq_processor.function_name
+}
+
 output "fulfillment_function_arn" {
   description = "ARN of the fulfillment Lambda function"
   value       = aws_lambda_function.fulfillment.arn

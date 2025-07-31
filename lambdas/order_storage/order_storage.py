@@ -1,77 +1,140 @@
 import json
 import boto3
 import logging
-from datetime import datetime, timezone
+import os
 import uuid
+from datetime import datetime, timezone
 
 # Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-"""This function saves an order into a database. It adds some useful info like timestamps and status, generates a unique ID if one isn't given, and then inserts everything into DynamoDB. If something fails, it logs the error and tells us."""
-
 # Initialize AWS clients
 dynamodb = boto3.resource('dynamodb')
+sqs = boto3.client('sqs')
 
 def lambda_handler(event, context):
     """
-    Order Storage Lambda function for DOFS project
-    Stores validated orders in DynamoDB
+    Order Storage Lambda - Stores validated orders and sends to SQS
+    Called by Step Function after successful validation
     """
     try:
-        # Log the incoming event
-        logger.info(f"Order Storage received event: {json.dumps(event)}")
-        
-        # Extract order data from event
+        # Extract validated order from Step Function
         order_data = event.get('order', {})
         
-        # Add metadata to order
-        order_data['created_at'] = datetime.now(timezone.utc).isoformat()
-        order_data['updated_at'] = datetime.now(timezone.utc).isoformat()
-        order_data['status'] = 'pending'
+        logger.info(json.dumps({
+            'event': 'order_storage_started',
+            'customer_id': order_data.get('customer_id'),
+            'request_id': context.aws_request_id
+        }))
         
-        # Generate order ID if not provided
-        if 'order_id' not in order_data:
-            order_data['order_id'] = str(uuid.uuid4())
+        # Generate unique order ID
+        order_id = str(uuid.uuid4())
         
-        # TODO: Replace 'orders-table' with actual table name from environment
-        table_name = 'orders-table'
+        # Store order in DynamoDB
+        stored_order = store_order_in_dynamodb(order_data, order_id)
         
-        try:
-            # Get DynamoDB table
-            table = dynamodb.Table(table_name)
-            
-            # Store the order
-            response = table.put_item(Item=order_data)
-            
-            logger.info(f"Order stored successfully: {order_data['order_id']}")
-            
-            return {
-                'statusCode': 200,
-                'body': json.dumps({
-                    'message': 'Order stored successfully',
-                    'order_id': order_data['order_id'],
-                    'status': 'stored'
-                })
-            }
-            
-        except Exception as db_error:
-            logger.error(f"Database error: {str(db_error)}")
-            return {
-                'statusCode': 500,
-                'body': json.dumps({
-                    'error': 'Database storage failed',
-                    'message': str(db_error),
-                    'order_id': order_data.get('order_id', 'unknown')
-                })
-            }
+        # Send order to SQS for fulfillment
+        send_order_to_sqs(stored_order)
+        
+        logger.info(json.dumps({
+            'event': 'order_stored_successfully',
+            'order_id': order_id,
+            'customer_id': order_data.get('customer_id'),
+            'request_id': context.aws_request_id
+        }))
+        
+        # Return success result for Step Function
+        return {
+            'stored': True,
+            'order_id': order_id,
+            'order': stored_order
+        }
         
     except Exception as e:
-        logger.error(f"Error in order storage: {str(e)}")
-        return {
-            'statusCode': 500,
-            'body': json.dumps({
-                'error': 'Order storage service error',
-                'message': str(e)
-            })
+        logger.error(json.dumps({
+            'event': 'order_storage_error',
+            'error': str(e),
+            'customer_id': order_data.get('customer_id'),
+            'request_id': context.aws_request_id
+        }))
+        
+        # Re-raise exception to fail Step Function
+        raise e
+
+def store_order_in_dynamodb(order_data, order_id):
+    """
+    Store order in DynamoDB orders table
+    """
+    # Get table name from environment
+    table_name = os.environ.get('ORDERS_TABLE_NAME')
+    if not table_name:
+        raise ValueError('ORDERS_TABLE_NAME environment variable not set')
+    
+    table = dynamodb.Table(table_name)
+    
+    # Prepare order record
+    order_record = {
+        'order_id': order_id,
+        'customer_id': order_data['customer_id'],
+        'items': order_data['items'],
+        'total_amount': order_data['total_amount'],
+        'shipping_address': order_data.get('shipping_address', {}),
+        'status': 'PENDING',
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'updated_at': datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Store in DynamoDB
+    table.put_item(Item=order_record)
+    
+    logger.info(json.dumps({
+        'event': 'order_saved_to_dynamodb',
+        'order_id': order_id,
+        'table_name': table_name
+    }))
+    
+    return order_record
+
+def send_order_to_sqs(order_record):
+    """
+    Send order to SQS queue for fulfillment processing
+    """
+    # Get queue URL from environment
+    queue_url = os.environ.get('ORDER_QUEUE_URL')
+    if not queue_url:
+        raise ValueError('ORDER_QUEUE_URL environment variable not set')
+    
+    # Prepare SQS message
+    message_body = {
+        'order_id': order_record['order_id'],
+        'customer_id': order_record['customer_id'],
+        'total_amount': order_record['total_amount'],
+        'status': order_record['status'],
+        'created_at': order_record['created_at']
+    }
+    
+    # Send message to SQS
+    response = sqs.send_message(
+        QueueUrl=queue_url,
+        MessageBody=json.dumps(message_body),
+        MessageAttributes={
+            'order_id': {
+                'StringValue': order_record['order_id'],
+                'DataType': 'String'
+            },
+            'customer_id': {
+                'StringValue': order_record['customer_id'],
+                'DataType': 'String'
+            }
         }
+    )
+    
+    logger.info(json.dumps({
+        'event': 'order_sent_to_sqs',
+        'order_id': order_record['order_id'],
+        'message_id': response['MessageId'],
+        'queue_url': queue_url
+    }))
+    
+    return response

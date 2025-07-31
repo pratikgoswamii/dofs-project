@@ -11,6 +11,7 @@ output "lambda_function_names" {
     validator = module.compute.validator_function_name
     order_storage = module.compute.order_storage_function_name
     fulfillment = module.compute.fulfillment_function_name
+    dlq_processor = module.compute.dlq_processor_function_name
   }
 }
 

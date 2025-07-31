@@ -91,6 +91,11 @@ resource "aws_cloudwatch_log_group" "fulfillment_logs" {
   retention_in_days = 14
 }
 
+resource "aws_cloudwatch_log_group" "dlq_processor_logs" {
+  name              = "/aws/lambda/${var.project_name}-dlq-processor-${var.environment}"
+  retention_in_days = 14
+}
+
 # Lambda Functions (Created First)
 
 # Validator Lambda
@@ -359,15 +364,48 @@ resource "aws_lambda_function" "fulfillment" {
   }
 }
 
+# DLQ Processor Lambda
+resource "aws_lambda_function" "dlq_processor" {
+  filename         = "${path.module}/../../../lambdas/dlq_processor/dlq_processor.zip"
+  function_name    = "${var.project_name}-dlq-processor-${var.environment}"
+  role            = aws_iam_role.lambda_execution_role.arn
+  handler         = "dlq_processor.lambda_handler"
+  runtime         = "python3.9"
+  timeout         = 25
+
+  environment {
+    variables = {
+      FAILED_ORDERS_TABLE_NAME = var.failed_orders_table_name
+      ENVIRONMENT              = var.environment
+    }
+  }
+
+  depends_on = [
+    aws_iam_role_policy.lambda_policy,
+    aws_cloudwatch_log_group.dlq_processor_logs
+  ]
+
+  tags = {
+    Name        = "${var.project_name}-dlq-processor-${var.environment}"
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
 # SQS Event Source Mapping for Fulfillment Lambda
 resource "aws_lambda_event_source_mapping" "sqs_trigger" {
   event_source_arn = var.order_queue_arn
   function_name    = aws_lambda_function.fulfillment.arn
   batch_size       = 1
-  maximum_batching_window_in_seconds = 5
-  
-  # Configure failure handling
-  function_response_types = ["ReportBatchItemFailures"]
   
   depends_on = [aws_lambda_function.fulfillment]
+}
+
+# SQS Event Source Mapping for DLQ Processor Lambda
+resource "aws_lambda_event_source_mapping" "dlq_trigger" {
+  event_source_arn = var.order_dlq_arn
+  function_name    = aws_lambda_function.dlq_processor.arn
+  batch_size       = 1
+  
+  depends_on = [aws_lambda_function.dlq_processor]
 }

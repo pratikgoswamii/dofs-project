@@ -18,7 +18,7 @@ resource "aws_sqs_queue" "order_queue" {
   max_message_size          = 262144
   message_retention_seconds = 1209600
   receive_wait_time_seconds = 0
-  visibility_timeout_seconds = 300
+  visibility_timeout_seconds = 30
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.order_dlq.arn
