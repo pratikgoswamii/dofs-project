@@ -16,7 +16,7 @@ phases:
   pre_build:
     commands:
       - echo "Installing dependencies and preparing Lambda packages..."
-      # Prepare Lambda zips
+      # Prepare Lambda zips in correct locations for Terraform
       - |
         for d in lambdas/*; do
           if [ -d "$d" ]; then
@@ -24,7 +24,7 @@ phases:
             if [ -f "$d/requirements.txt" ]; then
               pip install -r "$d/requirements.txt" -t "$d"
             fi
-            (cd "$d" && zip -r "../$(basename $d).zip" .)
+            (cd "$d" && zip -r "$(basename $d).zip" .)
           fi
         done
 
