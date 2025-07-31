@@ -13,33 +13,22 @@ phases:
 
   pre_build:
     commands:
-      - echo "Checking for Lambda code changes..."
+      - echo "Creating Lambda deployment packages..."
       - |
-        echo "" > changed_dirs.txt
         for dir in lambdas/*; do
           if [ -d "$dir" ]; then
-            if git diff --name-only HEAD~1 HEAD | grep "^$dir/.*\.py$" >/dev/null; then
-              echo "Detected changes in $dir"
-              echo "$dir" >> changed_dirs.txt
-            fi
-          fi
-        done
-
-        if [ ! -s changed_dirs.txt ]; then
-          echo "No Lambda changes detected. Skipping zip creation."
-        else
-          echo "Re-zipping updated Lambda folders..."
-          while read dir; do
             name=$(basename "$dir")
             zip_path="$dir/$name.zip"
             echo "Creating zip for $dir → $zip_path"
             rm -f "$zip_path"
             if [ -f "$dir/requirements.txt" ]; then
+              echo "Installing dependencies for $name"
               pip install -r "$dir/requirements.txt" -t "$dir"
             fi
-            (cd "$dir" && zip -r "$name.zip" .)
-          done < changed_dirs.txt
-        fi
+            (cd "$dir" && zip -r "$name.zip" . -x "*.zip")
+            echo "Created: $zip_path"
+          fi
+        done
 
   build:
     commands:
@@ -52,6 +41,8 @@ phases:
   post_build:
     commands:
       - echo "Build finished at `date`"
+      - echo "Listing created Lambda packages:"
+      - find lambdas -name "*.zip" -exec ls -la {} \;
 
 artifacts:
   files:
