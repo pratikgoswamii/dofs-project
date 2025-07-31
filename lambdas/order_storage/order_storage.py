@@ -4,6 +4,7 @@ import logging
 import os
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 
 # Configure logging
 logger = logging.getLogger()
@@ -62,6 +63,19 @@ def lambda_handler(event, context):
         # Re-raise exception to fail Step Function
         raise e
 
+def convert_floats_to_decimal(obj):
+    """
+    Convert float values to Decimal for DynamoDB compatibility
+    """
+    if isinstance(obj, list):
+        return [convert_floats_to_decimal(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {key: convert_floats_to_decimal(value) for key, value in obj.items()}
+    elif isinstance(obj, float):
+        return Decimal(str(obj))
+    else:
+        return obj
+
 def store_order_in_dynamodb(order_data, order_id):
     """
     Store order in DynamoDB orders table
@@ -73,12 +87,12 @@ def store_order_in_dynamodb(order_data, order_id):
     
     table = dynamodb.Table(table_name)
     
-    # Prepare order record
+    # Prepare order record with Decimal conversion for DynamoDB
     order_record = {
         'order_id': order_id,
         'customer_id': order_data['customer_id'],
-        'items': order_data['items'],
-        'total_amount': order_data['total_amount'],
+        'items': convert_floats_to_decimal(order_data['items']),
+        'total_amount': convert_floats_to_decimal(order_data['total_amount']),
         'shipping_address': order_data.get('shipping_address', {}),
         'status': 'PENDING',
         'created_at': datetime.now(timezone.utc).isoformat(),
@@ -105,11 +119,11 @@ def send_order_to_sqs(order_record):
     if not queue_url:
         raise ValueError('ORDER_QUEUE_URL environment variable not set')
     
-    # Prepare SQS message
+    # Prepare SQS message (convert Decimal back to float for JSON serialization)
     message_body = {
         'order_id': order_record['order_id'],
         'customer_id': order_record['customer_id'],
-        'total_amount': order_record['total_amount'],
+        'total_amount': float(order_record['total_amount']),
         'status': order_record['status'],
         'created_at': order_record['created_at']
     }
