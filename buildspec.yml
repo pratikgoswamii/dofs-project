@@ -4,33 +4,46 @@ phases:
   install:
     runtime-versions:
       python: 3.9
-      nodejs: 16
     commands:
-      - echo Installing Terraform...
+      - echo "Installing Terraform..."
       - curl -o terraform.zip https://releases.hashicorp.com/terraform/1.8.0/terraform_1.8.0_linux_amd64.zip
       - unzip -o terraform.zip -d /tmp
       - mv /tmp/terraform /usr/local/bin/terraform
       - terraform version
 
-
   pre_build:
     commands:
-      - echo "Installing dependencies and preparing Lambda packages..."
-      # Prepare Lambda zips in correct locations for Terraform
+      - echo "Checking for Lambda code changes..."
       - |
-        for d in lambdas/*; do
-          if [ -d "$d" ]; then
-            echo "Processing $d"
-            if [ -f "$d/requirements.txt" ]; then
-              pip install -r "$d/requirements.txt" -t "$d"
+        changed_dirs=()
+        for dir in lambdas/*; do
+          if [ -d "$dir" ]; then
+            if git diff --name-only HEAD~1 HEAD | grep "^$dir/.*\.py$"; then
+              echo "Detected changes in $dir"
+              changed_dirs+=("$dir")
             fi
-            (cd "$d" && zip -r "$(basename $d).zip" .)
           fi
         done
 
+        if [ ${#changed_dirs[@]} -eq 0 ]; then
+          echo "No Lambda changes. Skipping zip creation."
+        else
+          echo "Re-zipping updated Lambda folders..."
+          for dir in "${changed_dirs[@]}"; do
+            name=$(basename "$dir")
+            zip_path="$dir/$name.zip"
+            echo "Creating zip for $dir → $zip_path"
+            rm -f "$zip_path"
+            if [ -f "$dir/requirements.txt" ]; then
+              pip install -r "$dir/requirements.txt" -t "$dir"
+            fi
+            (cd "$dir" && zip -r "$name.zip" .)
+          done
+        fi
+
   build:
     commands:
-      - echo "Running Terraform..."
+      - echo "Running Terraform deployment..."
       - cd terraform
       - terraform init
       - terraform apply -auto-approve
@@ -38,7 +51,7 @@ phases:
 
   post_build:
     commands:
-      - echo "Build completed on `date`"
+      - echo "Build finished at `date`"
 
 artifacts:
   files:
