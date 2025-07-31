@@ -106,6 +106,7 @@ resource "aws_lambda_function" "validator" {
   handler         = "validator.lambda_handler"
   runtime         = "python3.9"
   timeout         = 30
+  source_code_hash = filebase64sha256("${path.module}/../../../lambdas/validator/validator.zip")
 
   environment {
     variables = {
@@ -133,6 +134,7 @@ resource "aws_lambda_function" "order_storage" {
   handler         = "order_storage.lambda_handler"
   runtime         = "python3.9"
   timeout         = 30
+  source_code_hash = filebase64sha256("${path.module}/../../../lambdas/order_storage/order_storage.zip")
 
   environment {
     variables = {
@@ -313,6 +315,7 @@ resource "aws_lambda_function" "api_handler" {
   handler         = "api_handler.lambda_handler"
   runtime         = "python3.9"
   timeout         = 30
+  source_code_hash = filebase64sha256("${path.module}/../../../lambdas/api_handler/api_handler.zip")
 
   environment {
     variables = {
@@ -343,6 +346,7 @@ resource "aws_lambda_function" "fulfillment" {
   handler         = "fulfill_order.lambda_handler"
   runtime         = "python3.9"
   timeout         = 300
+  source_code_hash = filebase64sha256("${path.module}/../../../lambdas/fulfill_order/fulfill_order.zip")
 
   environment {
     variables = {
@@ -372,6 +376,7 @@ resource "aws_lambda_function" "dlq_processor" {
   handler         = "dlq_processor.lambda_handler"
   runtime         = "python3.9"
   timeout         = 25
+  source_code_hash = filebase64sha256("${path.module}/../../../lambdas/dlq_processor/dlq_processor.zip")
 
   environment {
     variables = {
